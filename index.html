@@ -111,30 +111,6 @@ select,input{font-family:var(--ff-body);color:var(--txt);}
 .btn-import:active{border-color:var(--blue2);color:var(--blue2);}
 .import-file{display:none;}
 
-/* Config tours */
-.tour-block{background:var(--s2);border:1px solid var(--border);border-radius:var(--r8);
-  padding:10px;margin-bottom:8px;}
-.tour-block-hdr{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
-.tour-block-lbl{font-family:var(--ff-head);font-size:14px;font-weight:700;
-  letter-spacing:.04em;flex:1;}
-.tour-block-lbl.t1{color:var(--teal);}
-.tour-block-lbl.tstd{color:var(--dim);}
-.tour-block-lbl.tlast{color:var(--gold);}
-.tour-nb-input{width:48px;background:var(--s1);border:1px solid var(--border);
-  border-radius:var(--r3);padding:5px 6px;font-size:13px;color:var(--txt);text-align:center;}
-.tour-nb-lbl{font-size:11px;color:var(--dimmer);}
-.distances-wrap{display:flex;flex-direction:column;gap:5px;}
-.dist-row{display:flex;align-items:center;gap:8px;}
-.dist-bouee-lbl{font-family:var(--ff-mono);font-size:10px;color:var(--dim);
-  min-width:60px;flex-shrink:0;}
-.dist-input{flex:1;background:var(--s1);border:1px solid var(--border);
-  border-radius:var(--r3);padding:5px 8px;font-size:12px;color:var(--txt);}
-.dist-unit{font-family:var(--ff-mono);font-size:10px;color:var(--dimmer);}
-.btn-rebuild{padding:6px 12px;border-radius:var(--r5);
-  background:var(--s2);border:1px solid var(--border2);
-  font-size:11px;color:var(--dim);transition:all .1s;}
-.btn-rebuild:active{border-color:var(--blue2);color:var(--blue2);}
-
 /* ═══════════════════════════════════════════
    ÉCRAN 2 : OBSERVATION
 ═══════════════════════════════════════════ */
@@ -353,18 +329,13 @@ select,input{font-family:var(--ff-body);color:var(--txt);}
           </select>
         </div>
       </div>
-
-      <!-- Structure des tours -->
       <div class="field">
-        <div class="field-lbl" style="margin-bottom:8px">Structure des tours</div>
-        <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;">
-          <span style="font-size:11px;color:var(--dim);">Nb de tours :</span>
-          <input type="number" id="cfg-tours" value="6" min="1" max="20"
-            style="width:52px;background:var(--s2);border:1px solid var(--border);
-            border-radius:var(--r3);padding:6px 8px;font-size:14px;color:var(--txt);text-align:center;">
-          <button class="btn-rebuild" onclick="buildTourConfig()">&#8635; Reconstruire</button>
-        </div>
-        <div id="tour-config-wrap"></div>
+        <div class="field-lbl">Nb de tours</div>
+        <input type="number" id="cfg-tours" value="6" min="1" max="20">
+      </div>
+      <div class="field">
+        <div class="field-lbl">Bouées par tour standard</div>
+        <input type="number" id="cfg-bouees" value="3" min="1" max="10">
       </div>
     </div>
 
@@ -489,11 +460,8 @@ select,input{font-family:var(--ff-body);color:var(--txt);}
 // ÉTAT
 // ═══════════════════════════════════════════
 var CFG = {
-  nom:'', genre:'H', tours:6, observateur:''
+  nom:'', genre:'H', tours:6, bouees:3, observateur:''
 };
-// Structure des tours : {1:{nb:2, dists:[500,800]}, 2:{nb:3, dists:[600,600,600]}, ...}
-// 'std' = config standard pour tous les tours intermédiaires
-var TOUR_CONFIG = { t1:{nb:2,dists:[]}, std:{nb:3,dists:[]}, td:{nb:2,dists:[]} };
 var NAGEURS_LIST = [];    // startlist complète
 var NAG = [null, null];   // nageurs sélectionnés [{nom,noc,bib,color}, null]
 var NB_NAG = 1;
@@ -536,88 +504,6 @@ function initColors() {
   });
 }
 initColors();
-buildTourConfig();
-
-// ─── CONFIG TOURS ───────────────────────────────────────────────
-function buildTourConfig() {
-  var nbTours = parseInt(document.getElementById('cfg-tours').value) || 6;
-  var wrap = document.getElementById('tour-config-wrap');
-  if (!wrap) return;
-  wrap.innerHTML = '';
-
-  // Blocs : 1er tour, tours standard, dernier tour
-  var blocs = [
-    { key:'t1',  label:'1er tour',           cls:'t1',   colorClass:'teal' },
-    { key:'std', label:'Tours standard (2 → '+(nbTours-1)+')', cls:'tstd', colorClass:'dim' },
-    { key:'td',  label:'Dernier tour (T'+nbTours+')', cls:'tlast', colorClass:'gold' },
-  ];
-  if (nbTours <= 1) blocs = [blocs[0]]; // si 1 seul tour
-  if (nbTours === 2) blocs = [blocs[0], blocs[2]]; // si 2 tours
-
-  blocs.forEach(function(b) {
-    var tc = TOUR_CONFIG[b.key] || {nb:3, dists:[]};
-    var block = document.createElement('div');
-    block.className = 'tour-block';
-
-    // Header avec nb bouées
-    var hdr = '<div class="tour-block-hdr">'
-      + '<span class="tour-block-lbl '+b.cls+'">'+b.label+'</span>'
-      + '<span class="tour-nb-lbl">Bouées :</span>'
-      + '<input type="number" class="tour-nb-input" min="1" max="12"'
-      + ' value="'+(tc.nb||3)+'"'
-      + ' data-key="'+b.key+'" onchange="onNbBoueeChange(this)">'
-      + '</div>';
-
-    // Distances entre bouées
-    var nb = tc.nb || 3;
-    var distHtml = '<div class="distances-wrap">';
-    for (var i = 0; i < nb; i++) {
-      var from = i === 0 ? 'Départ' : 'B'+i;
-      var to   = i === nb-1 ? 'Arrivée/virage' : 'B'+(i+1);
-      var val  = (tc.dists && tc.dists[i] != null) ? tc.dists[i] : '';
-      distHtml += '<div class="dist-row">'
-        + '<span class="dist-bouee-lbl">'+from+' → '+to+'</span>'
-        + '<input type="number" class="dist-input" min="0" placeholder="—" value="'+val+'"'
-        + ' data-key="'+b.key+'" data-di="'+i+'" onchange="onDistChange(this)">'
-        + '<span class="dist-unit">m</span>'
-        + '</div>';
-    }
-    distHtml += '</div>';
-
-    block.innerHTML = hdr + distHtml;
-    wrap.appendChild(block);
-  });
-}
-
-function onNbBoueeChange(el) {
-  var key = el.dataset.key;
-  TOUR_CONFIG[key] = TOUR_CONFIG[key] || {nb:3, dists:[]};
-  TOUR_CONFIG[key].nb = parseInt(el.value) || 3;
-  buildTourConfig(); // reconstruire les champs distance
-}
-
-function onDistChange(el) {
-  var key = el.dataset.key;
-  var di  = parseInt(el.dataset.di);
-  TOUR_CONFIG[key] = TOUR_CONFIG[key] || {nb:3, dists:[]};
-  if (!TOUR_CONFIG[key].dists) TOUR_CONFIG[key].dists = [];
-  TOUR_CONFIG[key].dists[di] = el.value === '' ? null : parseInt(el.value);
-}
-
-function getNbBoueesPourTour(tourNum) {
-  var nbTours = CFG.tours || 6;
-  if (tourNum === 1) return (TOUR_CONFIG.t1 && TOUR_CONFIG.t1.nb) || 3;
-  if (tourNum === nbTours) return (TOUR_CONFIG.td && TOUR_CONFIG.td.nb) || 3;
-  return (TOUR_CONFIG.std && TOUR_CONFIG.std.nb) || 3;
-}
-
-function getDistsPourTour(tourNum) {
-  var nbTours = CFG.tours || 6;
-  if (tourNum === 1) return (TOUR_CONFIG.t1 && TOUR_CONFIG.t1.dists) || [];
-  if (tourNum === nbTours) return (TOUR_CONFIG.td && TOUR_CONFIG.td.dists) || [];
-  return (TOUR_CONFIG.std && TOUR_CONFIG.std.dists) || [];
-}
-// ────────────────────────────────────────────────────────────────
 
 function setNbNag(n) {
   NB_NAG = n;
@@ -734,10 +620,7 @@ function loadFromUrl() {
       document.getElementById('cfg-nom').value = cfg.nom || '';
       document.getElementById('cfg-genre').value = cfg.genre || 'H';
       document.getElementById('cfg-tours').value = cfg.tours || 6;
-      if (cfg.tour_config) {
-        TOUR_CONFIG = cfg.tour_config;
-        buildTourConfig();
-      }
+      document.getElementById('cfg-bouees').value = cfg.bouees || 3;
     }
     if (payload.nageurs && Array.isArray(payload.nageurs)) {
       NAGEURS_LIST = payload.nageurs;
@@ -752,8 +635,8 @@ function gatherCfg() {
     nom: document.getElementById('cfg-nom').value,
     genre: document.getElementById('cfg-genre').value,
     tours: parseInt(document.getElementById('cfg-tours').value) || 6,
+    bouees: parseInt(document.getElementById('cfg-bouees').value) || 3,
     observateur: document.getElementById('cfg-obs').value,
-    tour_config: JSON.parse(JSON.stringify(TOUR_CONFIG)),
   };
 }
 
@@ -961,21 +844,15 @@ function updateBtnTime(type, idx, ms) {
 
 function tagBouee(idx) {
   CUR_BOUEE[idx]++;
-  var nbBoueesCeTour = getNbBoueesPourTour(CUR_TOUR[idx]);
-  if (CUR_BOUEE[idx] > nbBoueesCeTour) {
+  var nbBouees = CFG.bouees;
+  if (CUR_BOUEE[idx] > nbBouees) {
     CUR_BOUEE[idx] = 1;
     CUR_TOUR[idx]++;
-    // recalc pour le nouveau tour
-    nbBoueesCeTour = getNbBoueesPourTour(CUR_TOUR[idx]);
   }
-  var dists = getDistsPourTour(CUR_TOUR[idx]);
-  var dist = (dists && dists[CUR_BOUEE[idx]-1] != null) ? dists[CUR_BOUEE[idx]-1] : null;
   var lbl = 'T' + CUR_TOUR[idx] + '-B' + CUR_BOUEE[idx];
-  var detail = { tour: CUR_TOUR[idx], bouee: CUR_BOUEE[idx], dist_m: dist };
-  addEvent(idx, 'bouee', 'Bouée ' + lbl, detail);
+  addEvent(idx, 'bouee', 'Bouée ' + lbl, { tour: CUR_TOUR[idx], bouee: CUR_BOUEE[idx] });
   updateZoneHeader(idx);
-  var distStr = dist != null ? ' · ' + dist + 'm' : '';
-  toast('🔵 ' + lbl + distStr + ' (' + CUR_BOUEE[idx] + '/' + nbBoueesCeTour + ')');
+  toast('🔵 ' + lbl);
 }
 
 function tagRavito(idx, phase) {
@@ -1296,6 +1173,7 @@ function updateLaunchBtn() {
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
+updateNagDisplay();
 loadFromUrl();
 </script>
 </body>
